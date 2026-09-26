@@ -26,7 +26,7 @@ The project repository is organized as follows:
 
 The final report and code were written by Yoseph Feleke, but the following resources were used for preliminary research:
 
-- LLM-based chatbots (ex. ChatGPT Edu)
+- LLM-based chatbot (ChatGPT Edu)
 
 ## Acknowledgments
 
