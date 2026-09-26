@@ -1,0 +1,321 @@
+---
+title: "Progressive Carries and Shot Production in the English Premier League"
+subtitle: "MATH261A: Regression Theory"
+author: "Yoseph Feleke"
+thanks: "Project repository available at: [https://github.com/hpesoy/MATH261A-Project1](https://github.com/hpesoy/MATH261A-Project1)."
+date: today
+date-format: long
+abstract: "Progressive carries advance possession toward the opponent's goal, but the player progressing the ball is not necessarily the player who ultimately takes a shot. Using player-level data from the 2024--25 English Premier League season, this study applies simple linear regression to examine the association between progressive carries and shots among 295 players who recorded at least one progressive carry. The analysis finds a statistically significant but weak positive association, with an additional 100 progressive carries associated with approximately 3.78 additional shots and progressive carries explaining only 1.45% of the variation in shot totals. These findings suggest that progressive ball carrying and shot production capture largely distinct aspects of attacking involvement, although departures from the regression assumptions warrant caution when interpreting the inferential results."
+format: pdf
+bibliography: references.bib
+
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+```{r}
+#| include: false
+#| warning: false
+#| message: false
+
+library(tidyverse)
+library(palmerpenguins)
+```
+
+```{r}
+#| include: false
+# Load data
+epl <- read_csv("epl_player_stats_24_25.csv")
+
+# Check variable names
+names(epl)
+
+# Descriptive statistics and ranges
+summary(epl$`Progressive Carries`)
+summary(epl$Shots)
+
+range(epl$`Progressive Carries`, na.rm = TRUE)
+range(epl$Shots, na.rm = TRUE)
+
+# Check missing values
+sum(is.na(epl$`Progressive Carries`))
+sum(is.na(epl$Shots))
+
+# Examine playing time
+summary(epl$Minutes)
+
+# Scatterplot
+ggplot(epl, aes(x = `Progressive Carries`, y = Shots)) +
+  geom_point() +
+  labs(
+    title = "Progressive Carries and Shots",
+    x = "Progressive Carries",
+    y = "Shots"
+  ) +
+  theme_minimal()
+```
+
+```{r}
+#| include: false
+# Number of players below common playing-time thresholds
+sum(epl$Minutes < 90)
+sum(epl$Minutes < 450)
+sum(epl$Minutes < 900)
+
+# Percentages
+mean(epl$Minutes < 90) * 100
+mean(epl$Minutes < 450) * 100
+mean(epl$Minutes < 900) * 100
+
+# Correlation between progressive carries and shots
+cor(epl$`Progressive Carries`, epl$Shots)
+
+# Scatterplot with fitted regression line
+ggplot(epl, aes(x = `Progressive Carries`, y = Shots)) +
+  geom_point(alpha = 0.6) +
+  geom_smooth(method = "lm", se = TRUE) +
+  labs(
+    title = "Progressive Carries and Shots",
+    x = "Progressive Carries",
+    y = "Shots"
+  ) +
+  theme_minimal()
+```
+```{r}
+#| include: false
+# Create dataset restricted to players with at least 450 minutes
+epl_450 <- epl %>%
+  filter(Minutes >= 450)
+
+# Number of observations retained
+nrow(epl_450)
+
+# Summary statistics
+summary(epl_450$`Progressive Carries`)
+summary(epl_450$Shots)
+
+# Correlation
+cor(epl_450$`Progressive Carries`, epl_450$Shots)
+
+# Scatterplot
+ggplot(epl_450, aes(x = `Progressive Carries`, y = Shots)) +
+  geom_point(alpha = 0.6) +
+  geom_smooth(method = "lm", se = TRUE) +
+  labs(
+    title = "Progressive Carries and Shots",
+    subtitle = "Players with at least 450 minutes played",
+    x = "Progressive Carries",
+    y = "Shots"
+  ) +
+  theme_minimal()
+```
+```{r}
+#| include: false
+epl_pc <- epl %>%
+  filter(`Progressive Carries` > 0)
+
+# Sample size
+nrow(epl_pc)
+
+# Playing time
+summary(epl_pc$Minutes)
+
+# Progressive carries
+summary(epl_pc$`Progressive Carries`)
+
+# Shots
+summary(epl_pc$Shots)
+
+# Correlation
+cor(epl_pc$`Progressive Carries`, epl_pc$Shots)
+
+ggplot(epl_pc, aes(x = `Progressive Carries`, y = Shots)) +
+  geom_point(alpha = 0.6) +
+  geom_smooth(method = "lm", se = TRUE) +
+  labs(
+    title = "Progressive Carries and Shots",
+    subtitle = "Players with at least one progressive carry",
+    x = "Progressive Carries",
+    y = "Shots"
+  ) +
+  theme_minimal()
+
+cor(epl_pc$Minutes, epl_pc$`Progressive Carries`)
+cor(epl_pc$Minutes, epl_pc$Shots)
+```
+```{r }
+#| include: false
+# Fit simple linear regression model
+model <- lm(Shots ~ `Progressive Carries`, data = epl_pc)
+
+# Regression results
+summary(model)
+
+# 95% confidence intervals for coefficients
+confint(model, level = 0.95)
+
+# Residuals vs. fitted
+plot(
+  fitted(model),
+  residuals(model),
+  xlab = "Fitted Values",
+  ylab = "Residuals",
+  main = "Residuals vs. Fitted"
+)
+abline(h = 0, lty = 2)
+
+# Normal Q-Q plot
+qqnorm(
+  residuals(model),
+  main = "Normal Q-Q Plot"
+)
+qqline(residuals(model))
+
+# Cook's distance
+plot(
+  cooks.distance(model),
+  type = "h",
+  xlab = "Observation",
+  ylab = "Cook's Distance",
+  main = "Cook's Distance"
+)
+
+# Largest Cook's distances
+head(
+  epl_pc[order(cooks.distance(model), decreasing = TRUE),
+         c("Player Name", "Progressive Carries", "Shots")],
+  10
+)
+```
+
+# Introduction
+
+Progressive ball movement is an important component of attacking play in soccer because advancing possession toward the opponent's goal can help create scoring opportunities. However, the player responsible for progressing the ball is not necessarily the player who ultimately takes the shot. A player may carry the ball forward before passing to a teammate who continues the attack or attempts the shot. Differences in playing position and tactical role may further separate these responsibilities. This raises the question of whether players who progress the ball more frequently also tend to produce more shots.
+
+This analysis examines the relationship between `Progressive Carries` and `Shots` among players in the 2024--25 English Premier League season. While both statistics measure aspects of attacking involvement, they represent different actions within an attacking sequence. Progressive carries measure a player's advancement of the ball toward the opponent's goal, whereas shots measure attempts to score directly. The relationship between these measures is therefore not necessarily straightforward. Understanding this association provides insight into whether progressive ball carrying is related to individual shot production or whether the two statistics largely reflect distinct attacking roles.
+
+To investigate this relationship, simple linear regression was used with `Shots` as the response variable and `Progressive Carries` as the predictor. The primary analysis was restricted to 295 players who recorded at least one progressive carry during the season, focusing the analysis on variation in progressive-carry volume among players who performed this action. The fitted model identified a positive but weak association between progressive carries and shots. An additional 100 progressive carries was associated with approximately 3.78 additional shots, but progressive carries explained only about 1.45% of the observed variation in shot totals. Although the estimated slope was statistically significant at the 5% level, model diagnostics showed departures from the assumptions used for standard linear regression inference, so the inferential results should be interpreted cautiously.
+
+The remainder of this paper describes the dataset and variables used in the analysis, presents the simple linear regression model and its assumptions, and reports the estimated relationship and model diagnostics. The results are then interpreted in the context of Premier League player roles and the limitations of using a single season-level statistic to explain shot production.
+
+# Data
+
+The data consist of player-level statistics from the 2024–25 English Premier League season [@hayes2025epl]. The dataset contains 562 observations, with each observation corresponding to an individual player who appeared in the Premier League during the season. In addition to performance statistics, the dataset includes identifying variables such as player name, club, nationality, and playing position. The source reports no missing observations in the dataset.
+
+The primary variables used in this analysis are `Progressive Carries` and `Shots`. `Progressive Carries` is the explanatory variable and measures the number of carries in which a player advanced the ball significantly toward the opponent's goal [@hayes2025epl]. More generally, Opta defines a progressive carry as a ball carry that moves the ball more than five metres upfield [@opta2024definitions]. `Shots` is the response variable and measures the total number of shots attempted by a player during the season. Both variables are nonnegative counts accumulated over the 2024–25 season. The analysis therefore examines whether players who record more progressive carries also tend to attempt more shots.
+
+Two additional variables are relevant when interpreting this relationship: `Minutes` and `Position`. `Minutes` records each player's total playing time, while `Position` identifies the player's primary playing role. Players with more minutes have greater opportunities to accumulate both progressive carries and shots, and the expected values of these statistics can differ substantially by position. These variables are not included as predictors in the simple linear regression model, but they represent potential sources of variation and should be considered when interpreting the estimated association.
+
+The dataset is distributed through the SCORE Sports Data Repository and was originally obtained from a Kaggle dataset of 2024–25 Premier League player statistics. SCORE notes that the data include both recorded player statistics and some machine-learning-derived statistics. Progressive Carries and Shots, however, are presented as recorded player performance measures rather than model-derived quantities. A limitation is that the provided documentation defines a progressive carry only as one that advances the ball "significantly" and does not specify the exact distance or field-position criteria used to classify a carry as progressive. This creates some uncertainty regarding the precise measurement procedure.
+
+Alternative sources of Premier League player data could be used to validate or extend the analysis. More detailed event-level soccer datasets could provide information on the location, distance, and outcome of individual carries and shots rather than season-level totals. Such data would allow playing time, position, match context, and other factors to be incorporated more directly. For the present analysis, however, the SCORE dataset provides the player-level variables necessary to study the association between progressive carries and shots using simple linear regression.
+
+Before fitting the regression model, the distributions of Progressive Carries and Shots will be summarized using descriptive statistics and visualized individually. A scatterplot of Shots against Progressive Carries will then be used to examine the direction, form, and strength of their relationship and to identify potential outliers or influential observations. Because both variables are season totals, particular attention will be given to players with limited playing time and players whose positions result in unusually low or high values.
+
+# Methods
+
+We adopt a simple linear regression model with `Shots` as the response variable and `Progressive Carries` as the predictor. Let $Y_i$ denote the total number of shots taken and $X_i$ denote the total number of progressive carries for the $i$th player in the dataset. The model can be written as
+
+$$
+Y_i = \beta_0 + \beta_1 X_i + \epsilon_i, \qquad i = 1,\ldots,n,
+$$
+
+where $\beta_0$ is the expected number of shots when the number of progressive carries is zero, $\beta_1$ represents the expected change in shots associated with one additional progressive carry, and $\epsilon_i$ represents the random error for player $i$. The errors account for variation in shot totals that is not explained by progressive carries.
+
+The analysis was restricted to players who recorded at least one progressive carry during the 2024--25 Premier League season. This resulted in a sample of $n=295$ players. This restriction focuses the analysis on the relationship between progressive-carry volume and shot production among players who actually recorded progressive carries. In this subset, all players had at least 911 minutes of playing time. No observations were missing for either variable, so no missing-value imputation was required.
+
+The parameters $\beta_0$ and $\beta_1$ were estimated using ordinary least squares (OLS), which selects the regression line that minimizes the sum of squared residuals. The fitted model is written as
+
+$$
+\widehat{Y}_i = \widehat{\beta}_0 + \widehat{\beta}_1 X_i,
+$$
+
+where $\widehat{Y}_i$ is the predicted number of shots for player $i$, and $\widehat{\beta}_0$ and $\widehat{\beta}_1$ are the estimated intercept and slope. The residual for player $i$ is $e_i = Y_i-\widehat{Y}_i$, representing the difference between the observed and predicted number of shots.
+
+Simple linear regression assumes that the mean response is a linear function of the predictor, observations are independent, the errors have constant variance, and the errors are approximately normally distributed for standard regression inference. The scatterplot indicated a weak positive linear relationship without an obvious nonlinear pattern. The residuals-versus-fitted plot showed substantial variation around zero, while the normal Q--Q plot showed noticeable departures from normality, particularly in the upper tail. Thus, the normality assumption is not well satisfied, and inferential results such as confidence intervals and hypothesis tests should be interpreted with caution. Independence is assumed at the player level, although players competing for the same clubs and within the same league may share common contextual factors.
+
+Model fit is evaluated using the estimated regression coefficients, the coefficient of determination $R^2$, a 95% confidence interval for $\beta_1$, and a hypothesis test of $H_0:\beta_1=0$ against $H_A:\beta_1\neq0$. The residuals-versus-fitted and normal Q--Q plots are used to assess the regression assumptions. Because only one predictor is considered, no additional model-selection procedure is required.
+
+The analysis has several limitations. Both progressive carries and shots are season-level counts and may depend on factors not included in the model. In particular, playing position, tactical role, team style, and playing time may influence a player's opportunities to carry the ball forward or take shots. A player who progresses the ball is also not necessarily the player who ultimately takes the shot. Therefore, the fitted relationship should be interpreted as an association rather than a causal effect. Additionally, restricting the analysis to players with at least one progressive carry means that the results apply to this subset of Premier League players rather than to all players who appeared during the season. Another limitation is that the provided documentation defines a progressive carry only as one that advances the ball "significantly" and does not specify the exact distance or field-position criteria used to classify a carry as progressive [@hayes2025epl].
+
+All data processing, visualization, and statistical analysis were performed in R using the `tidyverse` package. The simple linear regression model was fit using the `lm()` function, and model diagnostics were evaluated using residual and normal Q--Q plots.
+
+# Results
+
+The analysis included 295 Premier League players who recorded at least one progressive carry. Among these players, the median number of progressive carries was 124 and the median number of shots was 22. Progressive carries ranged from 12 to 494, while shots ranged from 1 to 130. Table 1 summarizes the distributions of the two variables used in the model.
+
+| Variable | Mean | Median | Q1 | Q3 | Min | Max |
+|---|---:|---:|---:|---:|---:|---:|
+| Progressive Carries | 140.0 | 124 | 78.0 | 191.5 | 12 | 494 |
+| Shots | 29.77 | 22 | 11.5 | 41.0 | 1 | 130 |
+
+The scatterplot in Figure 1 shows substantial variation in shot totals across the observed range of progressive carries. The fitted regression line has a slight positive slope, although the points are widely dispersed around the line. The Pearson correlation between `Progressive Carries` and `Shots` was $r=0.121$, indicating a weak positive linear association.
+
+```{r}
+#| echo: false
+#| warning: false
+#| message: false
+#| fig-cap: "Relationship between progressive carries and shots among Premier League players with at least one progressive carry."
+
+ggplot(epl_pc, aes(x = `Progressive Carries`, y = Shots)) +
+  geom_point(alpha = 0.6) +
+  geom_smooth(method = "lm", se = TRUE) +
+  labs(
+    x = "Progressive Carries",
+    y = "Shots"
+  ) +
+  theme_minimal()
+```
+
+The fitted simple linear regression model was
+
+$$
+\widehat{\text{Shots}}
+=
+24.487 + 0.03775(\text{Progressive Carries}).
+$$
+
+The estimated slope of 0.03775 indicates that one additional progressive carry was associated with an estimated increase of 0.0378 shots, on average. More practically, an additional 100 progressive carries was associated with approximately 3.78 additional shots. The 95% confidence interval for the slope was $(0.0020, 0.0735)$. Testing $H_0:\beta_1=0$ against $H_A:\beta_1\neq0$ produced $t=2.078$ and $p=0.0385$, providing evidence of a positive linear association at the 5% significance level.
+
+Although the estimated slope was positive, the model had $R^2=0.0145$. Therefore, progressive carries explained approximately 1.45% of the observed variation in shot totals. This indicates that the statistically significant association is weak in magnitude and that progressive carries alone provide limited information about differences in shot production between players.
+
+The diagnostic plots in Figures 2 and 3 show that the assumptions of the fitted model are not fully satisfied. The residuals-versus-fitted plot shows substantial variation in the residuals, including several large positive residuals. The normal Q--Q plot shows a clear departure from the reference line in the upper tail, indicating that the residuals are not approximately normally distributed. These departures should be considered when interpreting the confidence interval and hypothesis test.
+
+```{r}
+#| echo: false
+#| fig-cap: "Residuals versus fitted values for the simple linear regression model."
+
+plot(
+  fitted(model),
+  residuals(model),
+  xlab = "Fitted Values",
+  ylab = "Residuals",
+  main = ""
+)
+abline(h = 0, lty = 2)
+```
+
+```{r}
+#| echo: false
+#| fig-cap: "Normal Q--Q plot of the regression residuals."
+
+qqnorm(
+  residuals(model),
+  main = ""
+)
+qqline(residuals(model))
+```
+
+Overall, the results indicate that players who recorded more progressive carries tended to take slightly more shots, but the relationship was weak. Progressive carries accounted for only a small proportion of the variation in shot totals, suggesting that progressive ball carrying and shot production largely measure different aspects of attacking involvement. A player who advances possession toward the opponent's goal is not necessarily the player who ultimately attempts the shot, and differences in playing position and tactical role may contribute to the large amount of unexplained variation.
+
+# Discussion
+
+This analysis found a statistically significant but weak positive association between progressive carries and shots among Premier League players who recorded at least one progressive carry during the 2024--25 season. An additional 100 progressive carries was associated with approximately 3.78 additional shots, while progressive carries explained only 1.45% of the variation in shot totals. These results suggest that greater progressive-carry volume is associated with slightly greater shot production, but progressive carries alone provide little information about how frequently an individual player shoots. This is consistent with the broader context of attacking play, where progressing possession and taking the eventual shot may be performed by different players.
+
+Several limitations should be considered when interpreting these results. The analysis uses season-level totals and does not account for differences in playing position, tactical role, team style, or playing time, all of which may influence progressive carries and shots. The analysis was also restricted to players with at least one progressive carry, so the results do not generalize to every player who appeared in the Premier League during the season. In addition, the regression diagnostics showed a substantial departure from normality in the residuals. The confidence interval and hypothesis test should therefore be interpreted cautiously. Finally, the observational nature of the data prevents the estimated association from being interpreted as a causal effect of progressive carries on shots.
+
+Future analyses could incorporate additional variables to better explain differences in shot production. A multiple regression model could account for playing time and position while examining whether progressive carries remain associated with shots after controlling for these factors. Analyzing statistics on a per-90-minute basis could also reduce differences caused by unequal playing time. Position-specific models could determine whether the relationship differs between defenders, midfielders, and forwards, while match-level or event-level data could examine whether individual progressive carries are followed by shots or other attacking opportunities. These extensions would provide a more detailed understanding of how ball progression contributes to attacking play beyond the player-level association examined in this study.
+
+# References
